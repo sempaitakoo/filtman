@@ -136,7 +136,7 @@ exclude = [333333333]
 
 ```python
 def diff_states(old: FiltersState, new: FiltersState) -> FilterDiff: ...
-def format_diff(diff: FilterDiff) -> str: ...
+def format_diff(diff: FilterDiff, *, colored: bool = False) -> str: ...
 ```
 
 ---
@@ -216,6 +216,17 @@ async def cmd_find_channel(client: Client, query: str) -> None:
 
 Команды, работающие только с TOML — без подключения к Telegram. Используют `storage` и `ops`.
 
+```python
+def cmd_diff() -> None:
+    """
+    1. read_filters() → local_state  (ошибка если нет файла)
+    2. read_lock() → lock_state  (ошибка если нет файла)
+    3. diff_states(lock_state, local_state) → diff
+    4. Если diff пуст — «Нет изменений.»
+    5. Иначе — вывести format_diff(diff, colored=True)
+    """
+```
+
 ---
 
 ## `main.py`
@@ -235,6 +246,7 @@ main.py
   │    └─ telegram/api.py  (Hydrogram API)
   └─ commands/local.py
        ├─ storage/io.py
+       ├─ storage/diff.py
        └─ ops/filters.py   (операции над FiltersState)
 
 telegram/api.py
