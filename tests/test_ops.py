@@ -1,7 +1,12 @@
 import pytest
 
 from app.models import FilterSpec, FiltersState, PeerInfo, PeerUniverse
-from app.ops.filters import exclude_peers_from, resolve_filter
+from app.ops.filters import (
+    apply_compact,
+    compact_filter,
+    exclude_peers_from,
+    resolve_filter,
+)
 
 
 def make_spec(fid: int, title: str = "Test", **kwargs) -> FilterSpec:
@@ -302,3 +307,133 @@ def test_with_universe_groups_flag() -> None:
     result = get(do_exclude(state, 1, 2, universe), 1)
     assert set(result.exclude) == {10, 20}
     assert result.channels == [30, 40]
+
+
+# --- compact_filter ---
+
+
+def test_compact_suggests_broadcasts_when_all_present() -> None:
+    universe = make_universe(
+        make_peer(1, is_broadcast=True),
+        make_peer(2, is_broadcast=True),
+        make_peer(3, is_group=True),
+    )
+    spec = make_spec(1, channels=[1, 2])
+    suggestions = compact_filter(spec, universe)
+    flags = {s.flag for s in suggestions}
+    assert "broadcasts" in flags
+    assert "groups" not in flags
+
+
+def test_compact_no_suggestion_when_partial_match() -> None:
+    universe = make_universe(
+        make_peer(1, is_broadcast=True),
+        make_peer(2, is_broadcast=True),
+    )
+    spec = make_spec(1, channels=[1])  # только половина broadcasts
+    suggestions = compact_filter(spec, universe)
+    assert all(s.flag != "broadcasts" for s in suggestions)
+
+
+def test_compact_no_suggestion_when_flag_already_set() -> None:
+    universe = make_universe(make_peer(1, is_broadcast=True))
+    spec = make_spec(1, channels=[1], broadcasts=True)
+    suggestions = compact_filter(spec, universe)
+    assert all(s.flag != "broadcasts" for s in suggestions)
+
+
+def test_compact_multiple_flags_suggested() -> None:
+    universe = make_universe(
+        make_peer(1, is_broadcast=True),
+        make_peer(2, is_group=True),
+    )
+    spec = make_spec(1, channels=[1, 2])
+    suggestions = compact_filter(spec, universe)
+    flags = {s.flag for s in suggestions}
+    assert flags == {"broadcasts", "groups"}
+
+
+def test_compact_empty_category_no_suggestion() -> None:
+    universe = make_universe(make_peer(1, is_group=True))
+    spec = make_spec(1, channels=[1])
+    # broadcasts категория пустая → не предлагаем broadcasts=true
+    suggestions = compact_filter(spec, universe)
+    assert all(s.flag != "broadcasts" for s in suggestions)
+
+
+def test_compact_peers_list_correct() -> None:
+    universe = make_universe(
+        make_peer(10, is_broadcast=True),
+        make_peer(20, is_broadcast=True),
+    )
+    spec = make_spec(1, channels=[10, 20])
+    (suggestion,) = compact_filter(spec, universe)
+    assert suggestion.flag == "broadcasts"
+    assert set(suggestion.peers) == {10, 20}
+
+
+def test_compact_empty_channels_no_suggestions() -> None:
+    universe = make_universe(make_peer(1, is_broadcast=True))
+    spec = make_spec(1)
+    assert compact_filter(spec, universe) == []
+
+
+def test_compact_empty_universe_no_suggestions() -> None:
+    spec = make_spec(1, channels=[1, 2])
+    assert compact_filter(spec, make_universe()) == []
+
+
+# --- apply_compact ---
+
+
+def test_apply_compact_sets_flag() -> None:
+    universe = make_universe(make_peer(1, is_broadcast=True))
+    spec = make_spec(1, channels=[1])
+    suggestions = compact_filter(spec, universe)
+    result = apply_compact(spec, suggestions)
+    assert result.broadcasts is True
+
+
+def test_apply_compact_removes_peers_from_channels() -> None:
+    universe = make_universe(
+        make_peer(1, is_broadcast=True),
+        make_peer(2, is_broadcast=True),
+    )
+    spec = make_spec(1, channels=[1, 2, 99])
+    suggestions = compact_filter(spec, universe)
+    result = apply_compact(spec, suggestions)
+    assert result.channels == [99]
+    assert 1 not in result.channels
+    assert 2 not in result.channels
+
+
+def test_apply_compact_preserves_other_fields() -> None:
+    universe = make_universe(make_peer(1, is_broadcast=True))
+    spec = make_spec(1, title="Keep", channels=[1], pinned=[5], exclude=[9])
+    suggestions = compact_filter(spec, universe)
+    result = apply_compact(spec, suggestions)
+    assert result.title == "Keep"
+    assert result.pinned == [5]
+    assert result.exclude == [9]
+
+
+def test_apply_compact_multiple_suggestions() -> None:
+    universe = make_universe(
+        make_peer(1, is_broadcast=True),
+        make_peer(2, is_group=True),
+    )
+    spec = make_spec(1, channels=[1, 2, 99])
+    suggestions = compact_filter(spec, universe)
+    result = apply_compact(spec, suggestions)
+    assert result.broadcasts is True
+    assert result.groups is True
+    assert result.channels == [99]
+
+
+def test_apply_compact_does_not_mutate_original() -> None:
+    universe = make_universe(make_peer(1, is_broadcast=True))
+    spec = make_spec(1, channels=[1])
+    suggestions = compact_filter(spec, universe)
+    apply_compact(spec, suggestions)
+    assert spec.broadcasts is False
+    assert spec.channels == [1]

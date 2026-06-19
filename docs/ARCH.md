@@ -193,6 +193,18 @@ def exclude_peers_from(
     Если передан universe — раскрывает флаги категорий (broadcasts и т.д.).
     Возвращает (new_state, warnings); warnings непустой если universe отсутствует
     при наличии флагов или source использует динамические exclude-флаги."""
+
+@dataclass
+class CompactSuggestion:
+    flag: str        # "broadcasts", "groups", ...
+    peers: list[int] # chat_ids, которые будут удалены из channels
+
+def compact_filter(spec: FilterSpec, universe: PeerUniverse) -> list[CompactSuggestion]:
+    """Для каждого флага категории: если все peers этой категории из universe
+    уже присутствуют в spec.channels — предлагает заменить их на флаг."""
+
+def apply_compact(spec: FilterSpec, suggestions: list[CompactSuggestion]) -> FilterSpec:
+    """Устанавливает флаги из suggestions и убирает соответствующие ids из channels."""
 ```
 
 ---
@@ -290,6 +302,17 @@ def cmd_exclude(target_id: int, source_id: int) -> None:
     5. Если diff пуст — «Нет изменений.»
     6. Показать format_diff(diff, colored=True), запросить confirm
     7. write_filters(new_state)
+    """
+
+def cmd_compact(filter_id: int | None = None) -> None:
+    """
+    1. read_filters() → state  (ошибка если нет файла)
+    2. read_universe() → universe  (ошибка если нет peers.lock.json)
+    3. Если filter_id не передан:
+         для каждого фильтра — compact_filter(spec, universe) → показать предложения (read-only)
+    4. Если filter_id передан:
+         compact_filter(spec, universe) → показать предложения + предупреждение о семантике
+         запросить confirm → apply_compact(spec, suggestions) → write_filters(new_state)
     """
 ```
 

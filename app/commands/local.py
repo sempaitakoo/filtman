@@ -1,5 +1,10 @@
 # ruff: noqa: T201
-from app.ops.filters import exclude_peers_from
+from app.ops.filters import (
+    CompactSuggestion,
+    apply_compact,
+    compact_filter,
+    exclude_peers_from,
+)
 from app.storage.diff import diff_states, format_diff
 from app.storage.io import read_filters, read_lock, write_filters
 from app.storage.peers import read_universe
@@ -50,3 +55,55 @@ def cmd_exclude(target_id: int, source_id: int) -> None:
         return
 
     write_filters(new_state)
+
+
+def _format_suggestions(suggestions: list[CompactSuggestion]) -> str:
+    return "\n".join(
+        f"  {s.flag}=true заменяет {len(s.peers)} явных peers"
+        for s in suggestions
+    )
+
+
+def cmd_compact(filter_id: int | None = None) -> None:
+    try:
+        state = read_filters()
+    except FileNotFoundError:
+        print("filters.toml не найден.")
+        return
+
+    universe = read_universe()
+    if universe is None:
+        print("peers.lock.json не найден. Выполните pull.")
+        return
+
+    if filter_id is not None:
+        spec = next((f for f in state.filters if f.id == filter_id), None)
+        if spec is None:
+            print(f"Фильтр {filter_id} не найден.")
+            return
+        suggestions = compact_filter(spec, universe)
+        if not suggestions:
+            print(f"Нет предложений для фильтра {filter_id}.")
+            return
+        print(f"[{spec.id}] {spec.title}")
+        print(_format_suggestions(suggestions))
+        print("! Флаги включают будущие чаты этих категорий автоматически.")
+        answer = input("Применить? [y/N] ")
+        if answer.strip().lower() != "y":
+            return
+        new_spec = apply_compact(spec, suggestions)
+        new_filters = [
+            new_spec if f.id == filter_id else f for f in state.filters
+        ]
+        write_filters(state.__class__(filters=new_filters))
+    else:
+        any_found = False
+        for spec in state.filters:
+            suggestions = compact_filter(spec, universe)
+            if suggestions:
+                any_found = True
+                print(f"[{spec.id}] {spec.title}")
+                print(_format_suggestions(suggestions))
+                print()
+        if not any_found:
+            print("Нет предложений.")

@@ -3,7 +3,7 @@ from typing import Annotated
 import cyclopts
 from hydrogram import Client
 
-from app.commands.local import cmd_diff, cmd_exclude
+from app.commands.local import cmd_compact, cmd_diff, cmd_exclude
 from app.commands.sync import cmd_find_channel, cmd_pull, cmd_push
 from app.config import settings
 
@@ -22,6 +22,12 @@ def get_client() -> Client:
 def diff() -> None:
     """Показать diff между filters.toml и filters.lock.toml."""
     cmd_diff()
+
+
+@app.command
+def compact(filter_id: int | None = None) -> None:
+    """Показать (и применить) упрощения filters.toml через флаги категорий."""
+    cmd_compact(filter_id)
 
 
 @app.command

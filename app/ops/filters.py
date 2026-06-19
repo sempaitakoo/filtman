@@ -1,4 +1,5 @@
 import dataclasses
+from dataclasses import dataclass
 
 from app.models import ChatId, FilterId, FilterSpec, FiltersState, PeerUniverse
 
@@ -86,3 +87,42 @@ def exclude_peers_from(
         new_target if f.id == target_id else f for f in state.filters
     ]
     return FiltersState(filters=new_filters), warnings
+
+
+@dataclass
+class CompactSuggestion:
+    flag: str
+    peers: list[int]
+
+
+def compact_filter(
+    spec: FilterSpec, universe: PeerUniverse
+) -> list[CompactSuggestion]:
+    """Возвращает список предложений по замене явных channels на флаги категорий."""
+    channels_set = set(spec.channels)
+    suggestions: list[CompactSuggestion] = []
+    for flag, attr in _INCLUSION_FLAGS.items():
+        if getattr(spec, flag):
+            continue
+        category_peers = [p.chat_id for p in universe.peers if getattr(p, attr)]
+        if category_peers and set(category_peers).issubset(channels_set):
+            suggestions.append(
+                CompactSuggestion(flag=flag, peers=category_peers)
+            )
+    return suggestions
+
+
+def apply_compact(
+    spec: FilterSpec, suggestions: list[CompactSuggestion]
+) -> FilterSpec:
+    """Устанавливает флаги и убирает соответствующие ids из channels."""
+    to_remove: set[int] = set()
+    overrides: dict[str, bool] = {}
+    for s in suggestions:
+        overrides[s.flag] = True
+        to_remove.update(s.peers)
+    return dataclasses.replace(
+        spec,
+        channels=[c for c in spec.channels if c not in to_remove],
+        **overrides,
+    )
