@@ -96,6 +96,11 @@ class FilterDiff:
 
     @property
     def is_empty(self) -> bool: ...
+
+@dataclass
+class OverlapResult:
+    chat_id: ChatId
+    filters: list[FilterSpec]  # фильтры, в которых встречается этот chat_id
 ```
 
 ---
@@ -221,6 +226,14 @@ def compact_filter(spec: FilterSpec, universe: PeerUniverse) -> list[CompactSugg
 
 def apply_compact(spec: FilterSpec, suggestions: list[CompactSuggestion]) -> FilterSpec:
     """Устанавливает флаги из suggestions и убирает соответствующие ids из channels."""
+
+def find_overlaps(
+    state: FiltersState,
+    filter_id: FilterId | None = None,
+) -> list[OverlapResult]:
+    """Находит чаты, присутствующие в нескольких фильтрах.
+    Учитывает только явные channels и pinned — флаги категорий не раскрываются.
+    Результат отсортирован по убыванию числа фильтров."""
 ```
 
 ---
@@ -329,6 +342,15 @@ def cmd_compact(filter_id: int | None = None) -> None:
     4. Если filter_id передан:
          compact_filter(spec, universe) → показать предложения + предупреждение о семантике
          запросить confirm → apply_compact(spec, suggestions) → write_filters(new_state, universe=universe)
+    """
+
+def cmd_overlap(filter_id: int | None = None) -> None:
+    """
+    1. read_filters() → state  (ошибка если нет файла)
+    2. Если filter_id передан — проверить что фильтр существует
+    3. find_overlaps(state, filter_id) → results
+    4. Если results пуст — «Дублей нет.»
+    5. Вывести строки с выравниванием chat_id по ширине самого длинного
     """
 
 def cmd_annotate() -> None:
