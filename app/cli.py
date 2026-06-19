@@ -3,7 +3,13 @@ from typing import Annotated
 import cyclopts
 from hydrogram import Client
 
-from app.commands.local import cmd_annotate, cmd_compact, cmd_diff, cmd_exclude
+from app.commands.local import (
+    cmd_annotate,
+    cmd_compact,
+    cmd_diff,
+    cmd_exclude,
+    cmd_overlap,
+)
 from app.commands.sync import cmd_find_channel, cmd_pull, cmd_push
 from app.config import settings
 
@@ -16,6 +22,12 @@ def get_client() -> Client:
         api_id=settings.API_ID,
         api_hash=settings.API_HASH,
     )
+
+
+@app.command
+def overlap(filter_id: int | None = None) -> None:
+    """Показать чаты, присутствующие в нескольких папках."""
+    cmd_overlap(filter_id)
 
 
 @app.command

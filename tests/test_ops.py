@@ -5,6 +5,7 @@ from app.ops.filters import (
     apply_compact,
     compact_filter,
     exclude_peers_from,
+    find_overlaps,
     resolve_filter,
 )
 
@@ -437,3 +438,93 @@ def test_apply_compact_does_not_mutate_original() -> None:
     apply_compact(spec, suggestions)
     assert spec.broadcasts is False
     assert spec.channels == [1]
+
+
+# --- find_overlaps ---
+
+
+def test_find_overlaps_basic() -> None:
+    state = make_state(
+        make_spec(1, channels=[10, 20]),
+        make_spec(2, channels=[10]),
+    )
+    results = find_overlaps(state)
+    assert len(results) == 1
+    assert results[0].chat_id == 10
+    assert {f.id for f in results[0].filters} == {1, 2}
+
+
+def test_find_overlaps_pinned_counted() -> None:
+    state = make_state(
+        make_spec(1, channels=[99]),
+        make_spec(2, pinned=[99]),
+    )
+    results = find_overlaps(state)
+    assert len(results) == 1
+    assert results[0].chat_id == 99
+
+
+def test_find_overlaps_no_duplicates() -> None:
+    state = make_state(
+        make_spec(1, channels=[10]),
+        make_spec(2, channels=[20]),
+    )
+    assert find_overlaps(state) == []
+
+
+def test_find_overlaps_sorted_by_filter_count_desc() -> None:
+    state = make_state(
+        make_spec(1, channels=[10, 20]),
+        make_spec(2, channels=[10, 20]),
+        make_spec(3, channels=[20]),
+    )
+    results = find_overlaps(state)
+    counts = [len(r.filters) for r in results]
+    assert counts == sorted(counts, reverse=True)
+
+
+def test_find_overlaps_with_filter_id() -> None:
+    state = make_state(
+        make_spec(1, channels=[10, 20]),
+        make_spec(2, channels=[10]),
+        make_spec(3, channels=[20]),
+    )
+    results = find_overlaps(state, filter_id=2)
+    assert all(any(f.id == 2 for f in r.filters) for r in results)
+    assert len(results) == 1
+    assert results[0].chat_id == 10
+
+
+def test_find_overlaps_filter_id_no_results() -> None:
+    state = make_state(
+        make_spec(1, channels=[10]),
+        make_spec(2, channels=[20]),
+        make_spec(3, channels=[10]),
+    )
+    # фильтр 2 не пересекается ни с кем
+    assert find_overlaps(state, filter_id=2) == []
+
+
+def test_find_overlaps_three_way() -> None:
+    state = make_state(
+        make_spec(1, channels=[5]),
+        make_spec(2, channels=[5]),
+        make_spec(3, channels=[5]),
+    )
+    results = find_overlaps(state)
+    assert len(results) == 1
+    assert len(results[0].filters) == 3
+
+
+def test_find_overlaps_exclude_not_counted() -> None:
+    # exclude не входит в include_peers
+    state = make_state(
+        make_spec(1, channels=[10], exclude=[99]),
+        make_spec(2, channels=[99]),
+    )
+    results = find_overlaps(state)
+    assert all(r.chat_id != 99 for r in results)
+
+
+def test_find_overlaps_empty_state() -> None:
+    assert find_overlaps(make_state()) == []

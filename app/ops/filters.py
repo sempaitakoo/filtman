@@ -1,7 +1,14 @@
 import dataclasses
 from dataclasses import dataclass
 
-from app.models import ChatId, FilterId, FilterSpec, FiltersState, PeerUniverse
+from app.models import (
+    ChatId,
+    FilterId,
+    FilterSpec,
+    FiltersState,
+    OverlapResult,
+    PeerUniverse,
+)
 
 _INCLUSION_FLAGS: dict[str, str] = {
     "broadcasts": "is_broadcast",
@@ -126,3 +133,27 @@ def apply_compact(
         channels=[c for c in spec.channels if c not in to_remove],
         **overrides,
     )
+
+
+def find_overlaps(
+    state: FiltersState,
+    filter_id: FilterId | None = None,
+) -> list[OverlapResult]:
+    """Находит чаты, присутствующие в нескольких фильтрах одновременно."""
+    chat_to_filters: dict[ChatId, list[FilterSpec]] = {}
+    for f in state.filters:
+        for chat_id in set(f.channels) | set(f.pinned):
+            chat_to_filters.setdefault(chat_id, []).append(f)
+
+    results = [
+        OverlapResult(chat_id=chat_id, filters=filters)
+        for chat_id, filters in chat_to_filters.items()
+        if len(filters) >= 2  # noqa: PLR2004
+    ]
+
+    if filter_id is not None:
+        results = [
+            r for r in results if any(f.id == filter_id for f in r.filters)
+        ]
+
+    return sorted(results, key=lambda r: len(r.filters), reverse=True)

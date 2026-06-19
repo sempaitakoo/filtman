@@ -4,6 +4,7 @@ from app.ops.filters import (
     apply_compact,
     compact_filter,
     exclude_peers_from,
+    find_overlaps,
 )
 from app.storage.diff import diff_states, format_diff
 from app.storage.io import read_filters, read_lock, write_filters
@@ -107,6 +108,47 @@ def cmd_compact(filter_id: int | None = None) -> None:
                 print()
         if not any_found:
             print("Нет предложений.")
+
+
+def cmd_overlap(filter_id: int | None = None) -> None:
+    try:
+        state = read_filters()
+    except FileNotFoundError:
+        print("filters.toml не найден.")
+        return
+
+    if filter_id is not None:
+        anchor = next((f for f in state.filters if f.id == filter_id), None)
+        if anchor is None:
+            print(f"Фильтр {filter_id} не найден.")
+            return
+
+    results = find_overlaps(state, filter_id)
+    if not results:
+        print("Дублей нет.")
+        return
+
+    max_len = max(len(str(r.chat_id)) for r in results)
+
+    if filter_id is None:
+        for r in results:
+            folders = "  ".join(f"[{f.id}] {f.title}" for f in r.filters)
+            count = len(r.filters)
+            print(
+                f"{str(r.chat_id).ljust(max_len)}  в {count} папках: {folders}"
+            )
+    else:
+        anchor_title = next(f.title for f in state.filters if f.id == filter_id)
+        for r in results:
+            others = "  ".join(
+                f"[{f.id}] {f.title}" for f in r.filters if f.id != filter_id
+            )
+            print(f"{str(r.chat_id).ljust(max_len)}  также в: {others}")
+        print()
+        print(
+            f"{len(results)} чат{'а' if len(results) in (2, 3, 4) else 'ов'} "
+            f"из [{filter_id}] {anchor_title} присутствуют в других папках."
+        )
 
 
 def cmd_annotate() -> None:

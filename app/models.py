@@ -74,3 +74,11 @@ class FilterDiff:
     @property
     def is_empty(self) -> bool:
         return not (self.created or self.updated or self.deleted)
+
+
+@dataclass
+class OverlapResult:
+    """Чат, присутствующий в нескольких фильтрах одновременно."""
+
+    chat_id: ChatId
+    filters: list[FilterSpec]
