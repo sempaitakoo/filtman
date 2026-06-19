@@ -7,23 +7,27 @@ def make_spec(fid: int, title: str = "Test", **kwargs) -> FilterSpec:
 
 
 def make_state(*specs: FilterSpec) -> FiltersState:
-    return FiltersState(filters={s.id: s for s in specs})
+    return FiltersState(filters=list(specs))
+
+
+def get_by_id(state: FiltersState, fid: int) -> FilterSpec:
+    return next(f for f in state.filters if f.id == fid)
 
 
 # --- state_from_dict ---
 
 
 def test_from_dict_empty_data() -> None:
-    assert state_from_dict({}) == FiltersState(filters={})
+    assert state_from_dict({}) == FiltersState(filters=[])
 
 
 def test_from_dict_empty_filters_section() -> None:
-    assert state_from_dict({"filters": {}}) == FiltersState(filters={})
+    assert state_from_dict({"filters": {}}) == FiltersState(filters=[])
 
 
 def test_from_dict_parses_title() -> None:
     state = state_from_dict({"filters": {"1": {"title": "Работа"}}})
-    assert state.filters[1].title == "Работа"
+    assert get_by_id(state, 1).title == "Работа"
 
 
 def test_from_dict_parses_channels_pinned_exclude() -> None:
@@ -39,7 +43,7 @@ def test_from_dict_parses_channels_pinned_exclude() -> None:
             }
         }
     )
-    spec = state.filters[1]
+    spec = get_by_id(state, 1)
     assert spec.channels == [10, 20]
     assert spec.pinned == [5]
     assert spec.exclude == [99]
@@ -47,7 +51,7 @@ def test_from_dict_parses_channels_pinned_exclude() -> None:
 
 def test_from_dict_defaults_lists_to_empty() -> None:
     state = state_from_dict({"filters": {"1": {"title": "T"}}})
-    spec = state.filters[1]
+    spec = get_by_id(state, 1)
     assert spec.channels == []
     assert spec.pinned == []
     assert spec.exclude == []
@@ -58,6 +62,7 @@ def test_from_dict_parses_true_flags() -> None:
         "title": "T",
         "broadcasts": True,
         "contacts": True,
+        "non_contacts": True,
         "groups": True,
         "bots": True,
         "exclude_muted": True,
@@ -65,22 +70,22 @@ def test_from_dict_parses_true_flags() -> None:
         "exclude_archived": True,
     }
     state = state_from_dict({"filters": {"1": raw}})
-    spec = state.filters[1]
+    spec = get_by_id(state, 1)
     for flag in BOOL_FLAGS:
         assert getattr(spec, flag) is True, flag
 
 
 def test_from_dict_defaults_flags_to_false() -> None:
     state = state_from_dict({"filters": {"1": {"title": "T"}}})
-    spec = state.filters[1]
+    spec = get_by_id(state, 1)
     for flag in BOOL_FLAGS:
         assert getattr(spec, flag) is False, flag
 
 
 def test_from_dict_parses_string_keys_as_int() -> None:
     state = state_from_dict({"filters": {"42": {"title": "T"}}})
-    assert 42 in state.filters
-    assert state.filters[42].id == 42
+    assert any(f.id == 42 for f in state.filters)
+    assert get_by_id(state, 42).id == 42
 
 
 def test_from_dict_multiple_filters() -> None:
@@ -92,14 +97,14 @@ def test_from_dict_multiple_filters() -> None:
             }
         }
     )
-    assert set(state.filters.keys()) == {1, 2}
+    assert {f.id for f in state.filters} == {1, 2}
 
 
 # --- state_to_dict ---
 
 
 def test_to_dict_empty_state() -> None:
-    result = state_to_dict(FiltersState(filters={}))
+    result = state_to_dict(FiltersState(filters=[]))
     assert result == {"filters": {}}
 
 
@@ -145,10 +150,10 @@ def test_to_dict_uses_string_keys() -> None:
     assert "7" in result["filters"]
 
 
-def test_to_dict_sorts_by_id() -> None:
+def test_to_dict_preserves_insertion_order() -> None:
     state = make_state(make_spec(3, "C"), make_spec(1, "A"), make_spec(2, "B"))
     keys = list(state_to_dict(state)["filters"].keys())
-    assert keys == ["1", "2", "3"]
+    assert keys == ["3", "1", "2"]
 
 
 # --- roundtrip ---

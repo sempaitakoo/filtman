@@ -27,7 +27,7 @@ class FilterSpec:
 class FiltersState:
     """Полное состояние всех фильтров — структура filters.toml / filters.lock.toml."""
 
-    filters: dict[FilterId, FilterSpec]
+    filters: list[FilterSpec]
 
 
 @dataclass

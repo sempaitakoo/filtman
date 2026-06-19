@@ -26,3 +26,6 @@ pythonpath = ["."]
 
 [tool.basedpyright]
 typeCheckingMode = "standard"
+
+[tool.ruff]
+line-length = 80

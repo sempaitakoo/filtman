@@ -40,15 +40,17 @@ def write_lock(state: FiltersState, path: Path = LOCK_FILE) -> None:
 
 def diff_states(old: FiltersState, new: FiltersState) -> FilterDiff:
     """Сравнивает два состояния, возвращает diff."""
-    old_ids = set(old.filters)
-    new_ids = set(new.filters)
+    old_by_id = {f.id: f for f in old.filters}
+    new_by_id = {f.id: f for f in new.filters}
+    old_ids = set(old_by_id)
+    new_ids = set(new_by_id)
 
-    created = [new.filters[fid] for fid in new_ids - old_ids]
-    deleted = [old.filters[fid] for fid in old_ids - new_ids]
+    created = [new_by_id[fid] for fid in new_ids - old_ids]
+    deleted = [old_by_id[fid] for fid in old_ids - new_ids]
     updated = [
-        (old.filters[fid], new.filters[fid])
+        (old_by_id[fid], new_by_id[fid])
         for fid in old_ids & new_ids
-        if old.filters[fid] != new.filters[fid]
+        if old_by_id[fid] != new_by_id[fid]
     ]
     return FilterDiff(created=created, updated=updated, deleted=deleted)
 

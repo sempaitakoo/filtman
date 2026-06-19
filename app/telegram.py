@@ -24,7 +24,9 @@ _BOOL_FLAGS = (
 
 def _raw_to_filter_spec(raw_filter: raw.types.DialogFilter) -> FilterSpec:
     def peers_to_ids(peers: list[raw.base.InputPeer]) -> list[int]:
-        return [cid for p in peers if (cid := input_peer_to_chat_id(p)) is not None]
+        return [
+            cid for p in peers if (cid := input_peer_to_chat_id(p)) is not None
+        ]
 
     return FilterSpec(
         id=raw_filter.id,
@@ -69,12 +71,11 @@ def _filter_spec_to_raw(
 async def fetch_state(client: Client) -> FiltersState:
     """Получить текущие фильтры из Telegram → FiltersState. Пропускает id=0 (All Chats)."""
     raw_filters = await fetch_filters(client)
-    filters: dict[int, FilterSpec] = {}
-    for rf in raw_filters:
-        if rf.id == 0:
-            continue
-        spec = _raw_to_filter_spec(rf)
-        filters[spec.id] = spec
+    filters: list[FilterSpec] = [
+        _raw_to_filter_spec(rf)
+        for rf in raw_filters
+        if not isinstance(rf, raw.types.DialogFilterDefault) and rf.id != 0
+    ]
     return FiltersState(filters=filters)
 
 
@@ -82,10 +83,10 @@ async def apply_state(client: Client, target: FiltersState) -> None:
     """Применить FiltersState к Telegram: создать новые, обновить изменённые, удалить лишние."""
     current_raw = await fetch_filters(client)
     current_ids = {rf.id for rf in current_raw if rf.id != 0}
-    target_ids = set(target.filters)
+    target_ids = {spec.id for spec in target.filters}
 
     all_chat_ids: set[int] = set()
-    for spec in target.filters.values():
+    for spec in target.filters:
         all_chat_ids.update(spec.channels)
         all_chat_ids.update(spec.pinned)
         all_chat_ids.update(spec.exclude)
@@ -97,17 +98,21 @@ async def apply_state(client: Client, target: FiltersState) -> None:
         except Exception:
             pass
 
-    for fid in target_ids:
-        spec = target.filters[fid]
+    for spec in target.filters:
         raw_filter = _filter_spec_to_raw(spec, peers)
         await client.invoke(
             raw.functions.messages.UpdateDialogFilter(
-                id=fid, filter=cast(raw.base.DialogFilter, raw_filter)
+                id=spec.id, filter=cast(raw.base.DialogFilter, raw_filter)
             )
         )
 
     for fid in current_ids - target_ids:
         await client.invoke(raw.functions.messages.UpdateDialogFilter(id=fid))
+
+    order = [spec.id for spec in target.filters]
+    await client.invoke(
+        raw.functions.messages.UpdateDialogFiltersOrder(order=order)
+    )
 
 
 async def search_channels(client: Client, query: str) -> list[ChannelMatch]:

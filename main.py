@@ -12,7 +12,9 @@ app = cyclopts.App()
 
 def get_client() -> Client:
     return Client(
-        settings.SESSION_NAME, api_id=settings.API_ID, api_hash=settings.API_HASH
+        settings.SESSION_NAME,
+        api_id=settings.API_ID,
+        api_hash=settings.API_HASH,
     )
 
 

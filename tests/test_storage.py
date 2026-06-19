@@ -18,7 +18,7 @@ def make_spec(fid: int, title: str = "Test", **kwargs) -> FilterSpec:
 
 
 def make_state(*specs: FilterSpec) -> FiltersState:
-    return FiltersState(filters={s.id: s for s in specs})
+    return FiltersState(filters=list(specs))
 
 
 # --- read_filters / write_filters ---
@@ -81,16 +81,17 @@ def test_write_pinned_before_channels(tmp_path: Path) -> None:
     assert content.index("pinned") < content.index("channels")
 
 
-def test_write_filters_sorted_by_id(tmp_path: Path) -> None:
+def test_write_filters_preserves_insertion_order(tmp_path: Path) -> None:
     path = tmp_path / "filters.toml"
     write_filters(
-        make_state(make_spec(3, "C"), make_spec(1, "A"), make_spec(2, "B")), path
+        make_state(make_spec(3, "C"), make_spec(1, "A"), make_spec(2, "B")),
+        path,
     )
     content = path.read_text()
     assert (
-        content.index("[filters.1]")
+        content.index("[filters.3]")
+        < content.index("[filters.1]")
         < content.index("[filters.2]")
-        < content.index("[filters.3]")
     )
 
 
@@ -153,7 +154,9 @@ def test_diff_all_change_types() -> None:
     old = make_state(
         make_spec(1, "Keep"), make_spec(2, "Delete"), make_spec(3, "Change")
     )
-    new = make_state(make_spec(1, "Keep"), make_spec(3, "Changed"), make_spec(4, "New"))
+    new = make_state(
+        make_spec(1, "Keep"), make_spec(3, "Changed"), make_spec(4, "New")
+    )
     diff = diff_states(old, new)
     assert len(diff.created) == 1
     assert len(diff.deleted) == 1
