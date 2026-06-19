@@ -3,6 +3,7 @@ from app.models import FilterSpec, FiltersState
 BOOL_FLAGS = (
     "broadcasts",
     "contacts",
+    "non_contacts",
     "groups",
     "bots",
     "exclude_muted",
@@ -25,6 +26,7 @@ def state_from_dict(data: dict) -> FiltersState:
             exclude=list(raw.get("exclude", [])),
             broadcasts=bool(raw.get("broadcasts", False)),
             contacts=bool(raw.get("contacts", False)),
+            non_contacts=bool(raw.get("non_contacts", False)),
             groups=bool(raw.get("groups", False)),
             bots=bool(raw.get("bots", False)),
             exclude_muted=bool(raw.get("exclude_muted", False)),
@@ -39,14 +41,10 @@ def state_to_dict(state: FiltersState) -> dict:
     out: dict = {"filters": {}}
     for fid, spec in sorted(state.filters.items()):
         entry: dict = {"title": spec.title}
-        if spec.pinned:
-            entry["pinned"] = spec.pinned
-        if spec.channels:
-            entry["channels"] = spec.channels
-        if spec.exclude:
-            entry["exclude"] = spec.exclude
+        entry["pinned"] = spec.pinned
+        entry["channels"] = spec.channels
+        entry["exclude"] = spec.exclude
         for flag in BOOL_FLAGS:
-            if getattr(spec, flag):
-                entry[flag] = True
+            entry[flag] = getattr(spec, flag)
         out["filters"][str(fid)] = entry
     return out

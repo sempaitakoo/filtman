@@ -13,6 +13,7 @@ from app.wrappers import (
 _BOOL_FLAGS = (
     "broadcasts",
     "contacts",
+    "non_contacts",
     "groups",
     "bots",
     "exclude_muted",
@@ -33,6 +34,7 @@ def _raw_to_filter_spec(raw_filter: raw.types.DialogFilter) -> FilterSpec:
         exclude=peers_to_ids(raw_filter.exclude_peers),
         broadcasts=bool(raw_filter.broadcasts),
         contacts=bool(raw_filter.contacts),
+        non_contacts=bool(raw_filter.non_contacts),
         groups=bool(raw_filter.groups),
         bots=bool(raw_filter.bots),
         exclude_muted=bool(raw_filter.exclude_muted),
@@ -55,6 +57,7 @@ def _filter_spec_to_raw(
         exclude_peers=ids_to_peers(spec.exclude),
         broadcasts=spec.broadcasts or None,
         contacts=spec.contacts or None,
+        non_contacts=spec.non_contacts or None,
         groups=spec.groups or None,
         bots=spec.bots or None,
         exclude_muted=spec.exclude_muted or None,

@@ -15,6 +15,7 @@ class FilterSpec:
     exclude: list[ChatId] = field(default_factory=list)
     broadcasts: bool = False
     contacts: bool = False
+    non_contacts: bool = False
     groups: bool = False
     bots: bool = False
     exclude_muted: bool = False
