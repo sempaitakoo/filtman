@@ -3,7 +3,7 @@ from typing import cast
 from hydrogram import Client, raw
 
 from app.models import ChannelMatch, FilterSpec, FiltersState
-from app.wrappers import (
+from app.telegram.wrappers import (
     fetch_filters,
     input_peer_to_chat_id,
     iter_dialogs,

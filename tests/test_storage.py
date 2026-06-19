@@ -3,14 +3,8 @@ from pathlib import Path
 import pytest
 
 from app.models import FilterSpec, FiltersState
-from app.storage import (
-    diff_states,
-    format_diff,
-    read_filters,
-    read_lock,
-    write_filters,
-    write_lock,
-)
+from app.storage.diff import diff_states, format_diff
+from app.storage.io import read_filters, read_lock, write_filters, write_lock
 
 
 def make_spec(fid: int, title: str = "Test", **kwargs) -> FilterSpec:

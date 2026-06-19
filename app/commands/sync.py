@@ -1,14 +1,8 @@
 from hydrogram import Client
 
-from app.storage import (
-    diff_states,
-    format_diff,
-    read_filters,
-    read_lock,
-    write_filters,
-    write_lock,
-)
-from app.telegram import apply_state, fetch_state, search_channels
+from app.storage.diff import diff_states, format_diff
+from app.storage.io import read_filters, read_lock, write_filters, write_lock
+from app.telegram.api import apply_state, fetch_state, search_channels
 
 
 async def cmd_pull(client: Client) -> None:
