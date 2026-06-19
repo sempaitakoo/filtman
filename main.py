@@ -1,7 +1,9 @@
+from typing import Annotated
+
 import cyclopts
 from hydrogram import Client
 
-from app.commands.local import cmd_diff
+from app.commands.local import cmd_diff, cmd_exclude
 from app.commands.sync import cmd_find_channel, cmd_pull, cmd_push
 from app.config import settings
 
@@ -20,6 +22,15 @@ def get_client() -> Client:
 def diff() -> None:
     """Показать diff между filters.toml и filters.lock.toml."""
     cmd_diff()
+
+
+@app.command
+def exclude(
+    target_id: int,
+    from_: Annotated[int, cyclopts.Parameter(name="--from")],
+) -> None:
+    """Добавить в exclude фильтра <target_id> все peers из фильтра --from."""
+    cmd_exclude(target_id, from_)
 
 
 @app.command
