@@ -19,15 +19,28 @@ def diff_states(old: FiltersState, new: FiltersState) -> FilterDiff:
     return FilterDiff(created=created, updated=updated, deleted=deleted)
 
 
-def format_diff(diff: FilterDiff) -> str:
+_GREEN = "\033[32m"
+_RED = "\033[31m"
+_YELLOW = "\033[33m"
+_RESET = "\033[0m"
+
+
+def format_diff(diff: FilterDiff, *, colored: bool = False) -> str:
     """Форматирует FilterDiff в читаемый текст для вывода пользователю."""
-    lines: list[str] = []
-    lines.extend(f"  + [{spec.id}] {spec.title}" for spec in diff.created)
+
+    def c(color: str, text: str) -> str:
+        return f"{color}{text}{_RESET}" if colored else text
+
+    lines: list[str] = [
+        c(_GREEN, f"  + [{spec.id}] {spec.title}") for spec in diff.created
+    ]
     for old, new in diff.updated:
-        lines.append(f"  ~ [{old.id}] {old.title}")
+        lines.append(c(_YELLOW, f"  ~ [{old.id}] {old.title}"))
         for field in ("title", *LIST_FIELDS, *BOOL_FLAGS):
             ov, nv = getattr(old, field), getattr(new, field)
             if ov != nv:
-                lines.append(f"      {field}: {ov!r} → {nv!r}")
-    lines.extend(f"  - [{spec.id}] {spec.title}" for spec in diff.deleted)
+                lines.append(c(_YELLOW, f"      {field}: {ov!r} → {nv!r}"))
+    lines.extend(
+        c(_RED, f"  - [{spec.id}] {spec.title}") for spec in diff.deleted
+    )
     return "\n".join(lines)

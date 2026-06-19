@@ -1,6 +1,7 @@
 import cyclopts
 from hydrogram import Client
 
+from app.commands.local import cmd_diff
 from app.commands.sync import cmd_find_channel, cmd_pull, cmd_push
 from app.config import settings
 
@@ -13,6 +14,12 @@ def get_client() -> Client:
         api_id=settings.API_ID,
         api_hash=settings.API_HASH,
     )
+
+
+@app.command
+def diff() -> None:
+    """Показать diff между filters.toml и filters.lock.toml."""
+    cmd_diff()
 
 
 @app.command
