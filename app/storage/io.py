@@ -13,7 +13,8 @@ LOCK_FILE = Path("filters.lock.toml")
 def read_filters(path: Path = FILTERS_FILE) -> FiltersState:
     """Читает filters.toml → FiltersState. Raises FileNotFoundError если нет файла."""
     if not path.exists():
-        raise FileNotFoundError(f"{path} not found")
+        msg = f"{path} not found"
+        raise FileNotFoundError(msg)
     with path.open("rb") as f:
         data = tomllib.load(f)
     return state_from_dict(data)

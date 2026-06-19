@@ -18,15 +18,15 @@ def input_peer_to_chat_id(peer: raw.base.InputPeer) -> int | None:
 
 
 def iter_dialogs(client: Client) -> AsyncGenerator[Dialog]:
-    return client.get_dialogs()  # pyright: ignore[reportReturnType]
+    return client.get_dialogs()  # ty: ignore[invalid-return-type]
 
 
 async def fetch_chat(client: Client, chat_id: int) -> Chat:
-    return await client.get_chat(chat_id)  # pyright: ignore[reportReturnType]
+    return await client.get_chat(chat_id)  # ty: ignore[invalid-return-type]
 
 
 async def resolve_peer(client: Client, chat_id: int) -> raw.base.InputPeer:
-    return await client.resolve_peer(chat_id)  # pyright: ignore[reportReturnType]
+    return await client.resolve_peer(chat_id)  # ty: ignore[invalid-return-type]
 
 
 async def fetch_filters(client: Client) -> list[DialogFilter]:

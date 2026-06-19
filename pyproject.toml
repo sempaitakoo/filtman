@@ -18,14 +18,56 @@ dependencies = [
 dev = [
     "basedpyright>=1.39.7",
     "pytest>=9.1.0",
+    "pytest-cov>=7.1.0",
     "ruff>=0.15.17",
+    "ty>=0.0.51",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-
-[tool.basedpyright]
-typeCheckingMode = "standard"
+filterwarnings = [
+    "ignore::DeprecationWarning:uvloop",
+    "ignore::DeprecationWarning:hydrogram",
+]
 
 [tool.ruff]
 line-length = 80
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "E501",   # Line too long
+    "N815",   # CamelCase
+    "RUF001", # String contains ambiguous
+    "RUF002", # String contains ambiguous
+    "RUF003", # String contains ambiguous
+    "D100",   # Missing docstring
+    "D101",   # Missing docstring
+    "D102",   # Missing docstring
+    "D103",   # Missing docstring
+    "D104",   # Missing docstring
+    "D105",   # Missing docstring
+    "D106",   # Missing docstring
+    "D107",   # Missing docstring
+    "D203",   # 1 blank line required before class docstring
+    "D212",   # Multi-line docstring shoud start at first line
+    "A002",   # Function argument is shadowing a Python builtin
+    "A001",   # Variable is shadowing a Python builtin
+    "COM",    # Trailing comma
+    "EM101",  # Exception must not use a string literal, assign to variable first
+    "TRY002", # Create your own exception
+    "TRY003", # Avoid specifying long messages outside the exception class
+    "TRY301", # Abstract raise to an inner function
+    "S101",   # Use of assert detected
+    "TC001",  # Move into type checking block
+    "TC002",  # Move into type checking block
+    "TC003",  # Move into type checking block
+    "ASYNC250", # Blocking input() in async — intentional in CLI
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "INP001",  # Implicit namespace package — pytest doesn't need __init__.py
+    "ANN003",  # Missing **kwargs annotation — unnecessary in test helpers
+    "PLR2004", # Magic values in comparisons — normal in test assertions
+]

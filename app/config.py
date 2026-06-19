@@ -8,4 +8,4 @@ class Settings(BaseSettings):
     SESSION_NAME: str
 
 
-settings = Settings()  # pyright: ignore[reportCallIssue]
+settings = Settings()  # ty: ignore[missing-argument]

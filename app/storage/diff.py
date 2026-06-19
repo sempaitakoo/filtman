@@ -22,14 +22,12 @@ def diff_states(old: FiltersState, new: FiltersState) -> FilterDiff:
 def format_diff(diff: FilterDiff) -> str:
     """Форматирует FilterDiff в читаемый текст для вывода пользователю."""
     lines: list[str] = []
-    for spec in diff.created:
-        lines.append(f"  + [{spec.id}] {spec.title}")
+    lines.extend(f"  + [{spec.id}] {spec.title}" for spec in diff.created)
     for old, new in diff.updated:
         lines.append(f"  ~ [{old.id}] {old.title}")
         for field in ("title", *LIST_FIELDS, *BOOL_FLAGS):
             ov, nv = getattr(old, field), getattr(new, field)
             if ov != nv:
                 lines.append(f"      {field}: {ov!r} → {nv!r}")
-    for spec in diff.deleted:
-        lines.append(f"  - [{spec.id}] {spec.title}")
+    lines.extend(f"  - [{spec.id}] {spec.title}" for spec in diff.deleted)
     return "\n".join(lines)

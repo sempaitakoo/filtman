@@ -1,11 +1,8 @@
 import cyclopts
-import uvloop
 from hydrogram import Client
 
 from app.commands.sync import cmd_find_channel, cmd_pull, cmd_push
 from app.config import settings
-
-uvloop.install()
 
 app = cyclopts.App()
 

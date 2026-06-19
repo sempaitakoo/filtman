@@ -1,3 +1,4 @@
+import contextlib
 from typing import cast
 
 from hydrogram import Client, raw
@@ -93,16 +94,14 @@ async def apply_state(client: Client, target: FiltersState) -> None:
 
     peers: dict[int, raw.base.InputPeer] = {}
     for cid in all_chat_ids:
-        try:
+        with contextlib.suppress(Exception):
             peers[cid] = await resolve_peer(client, cid)
-        except Exception:
-            pass
 
     for spec in target.filters:
         raw_filter = _filter_spec_to_raw(spec, peers)
         await client.invoke(
             raw.functions.messages.UpdateDialogFilter(
-                id=spec.id, filter=cast(raw.base.DialogFilter, raw_filter)
+                id=spec.id, filter=cast("raw.base.DialogFilter", raw_filter)
             )
         )
 

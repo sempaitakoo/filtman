@@ -4,29 +4,36 @@
 
 ```
 grpman/
-├── main.py              # CLI точка входа (typer)
-├── app/
-│   ├── __init__.py
-│   ├── config.py        # Настройки из .env
-│   ├── models.py        # Доменные модели
-│   ├── storage.py       # Чтение/запись filters.toml и filters.lock.toml
-│   ├── telegram.py      # Обёртки над Hydrogram API
-│   ├── commands.py      # Бизнес-логика команд pull / push / find-channel
-│   └── wrappers.py      # (уже есть) низкоуровневые обёртки Hydrogram
+├── main.py                   # CLI точка входа (cyclopts)
+└── app/
+    ├── config.py             # Настройки из .env
+    ├── models.py             # Доменные модели
+    ├── mapper.py             # Конвертация dict ↔ FiltersState (TOML-слой)
+    ├── storage/
+    │   ├── io.py             # Чтение/запись filters.toml и filters.lock.toml
+    │   └── diff.py           # diff_states, format_diff
+    ├── ops/
+    │   └── filters.py        # Операции над FiltersState без I/O и без Telegram
+    ├── telegram/
+    │   ├── api.py            # fetch_state, apply_state, search_channels
+    │   └── wrappers.py       # Низкоуровневые обёртки Hydrogram
+    └── commands/
+        ├── local.py          # Команды, работающие только с TOML
+        └── sync.py           # Команды, требующие Telegram (pull, push, find-channel)
 ```
 
 ---
 
 ## `app/config.py`
 
-Настройки приложения через pydantic-settings (уже используется в main.py).
+Настройки приложения через pydantic-settings.
 
 ```python
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env")
     API_ID: str
     API_HASH: str
-    SESSION_NAME: str = "takoo"
+    SESSION_NAME: str
 
 settings = Settings()
 ```
@@ -40,81 +47,69 @@ settings = Settings()
 ```python
 @dataclass
 class FilterSpec:
-    """Описание одного фильтра — то, что хранится в filters.toml."""
     id: int
     title: str
-    channels: list[int] = field(default_factory=list)   # include_peers (chat_id)
-    pinned: list[int] = field(default_factory=list)     # pinned_peers (chat_id)
-    exclude: list[int] = field(default_factory=list)    # exclude_peers (chat_id)
+    channels: list[int] = ...   # include_peers (chat_id)
+    pinned: list[int] = ...     # pinned_peers (chat_id)
+    exclude: list[int] = ...    # exclude_peers (chat_id)
     broadcasts: bool = False
     contacts: bool = False
+    non_contacts: bool = False
     groups: bool = False
     bots: bool = False
     exclude_muted: bool = False
     exclude_read: bool = False
     exclude_archived: bool = False
 
-
 @dataclass
 class FiltersState:
-    """Полное состояние всех фильтров — структура filters.toml / filters.lock.toml."""
-    filters: dict[int, FilterSpec]   # filter_id → FilterSpec
-
+    filters: list[FilterSpec]
 
 @dataclass
 class ChannelMatch:
-    """Результат поиска find-channel."""
     chat_id: int
     username: str | None
     title: str
 
-
 @dataclass
 class FilterDiff:
-    """Разница между двумя состояниями FiltersState."""
     created: list[FilterSpec]
     updated: list[tuple[FilterSpec, FilterSpec]]  # (old, new)
     deleted: list[FilterSpec]
 
     @property
-    def is_empty(self) -> bool:
-        return not (self.created or self.updated or self.deleted)
+    def is_empty(self) -> bool: ...
 ```
 
 ---
 
-## `app/storage.py`
+## `app/mapper.py`
 
-Чтение и запись TOML-файлов. Знает только о `FilterSpec` / `FiltersState`, не знает о Telegram.
+Конвертация между TOML-словарём и доменными моделями. Не знает о файловой системе.
+
+```python
+BOOL_FLAGS = ("broadcasts", "contacts", "non_contacts", "groups", "bots",
+              "exclude_muted", "exclude_read", "exclude_archived")
+LIST_FIELDS = ("pinned", "channels", "exclude")
+
+def state_from_dict(data: dict) -> FiltersState: ...
+def state_to_dict(state: FiltersState) -> dict: ...
+```
+
+---
+
+## `app/storage/io.py`
+
+Чтение и запись TOML-файлов. Использует `mapper` для конвертации, не знает о Telegram.
 
 ```python
 FILTERS_FILE = Path("filters.toml")
 LOCK_FILE = Path("filters.lock.toml")
 
-
-def read_filters(path: Path = FILTERS_FILE) -> FiltersState:
-    """Читает filters.toml → FiltersState. Raises FileNotFoundError если нет файла."""
-    ...
-
-def write_filters(state: FiltersState, path: Path = FILTERS_FILE) -> None:
-    """Записывает FiltersState → filters.toml."""
-    ...
-
-def read_lock(path: Path = LOCK_FILE) -> FiltersState | None:
-    """Читает filters.lock.toml. Возвращает None если файл не существует."""
-    ...
-
-def write_lock(state: FiltersState, path: Path = LOCK_FILE) -> None:
-    """Записывает filters.lock.toml."""
-    ...
-
-def diff_states(old: FiltersState, new: FiltersState) -> FilterDiff:
-    """Сравнивает два состояния, возвращает diff."""
-    ...
-
-def format_diff(diff: FilterDiff) -> str:
-    """Форматирует FilterDiff в читаемый текст для вывода пользователю."""
-    ...
+def read_filters(path: Path = FILTERS_FILE) -> FiltersState: ...
+def write_filters(state: FiltersState, path: Path = FILTERS_FILE) -> None: ...
+def read_lock(path: Path = LOCK_FILE) -> FiltersState | None: ...
+def write_lock(state: FiltersState, path: Path = LOCK_FILE) -> None: ...
 ```
 
 **Формат TOML:**
@@ -128,59 +123,68 @@ channels = [123456789, 987654321]
 [filters.3]
 title = "Политика"
 broadcasts = true
-channels = []
 exclude = [333333333]
 ```
 
-Правила записи: все поля записываются всегда, включая пустые списки и флаги `false`. `pinned` записывается перед `channels` для читаемости.
+Правила записи: пустые списки и флаги `false` не записываются. `pinned` записывается перед `channels` для читаемости.
 
 ---
 
-## `app/telegram.py`
+## `app/storage/diff.py`
 
-Инкапсулирует все вызовы Hydrogram API. Конвертирует между raw Telegram-объектами и доменными моделями (`FilterSpec`, `FiltersState`, `ChannelMatch`). Снаружи никто не работает с `raw.types.DialogFilter` напрямую.
+Сравнение двух состояний и форматирование результата для вывода пользователю.
+
+```python
+def diff_states(old: FiltersState, new: FiltersState) -> FilterDiff: ...
+def format_diff(diff: FilterDiff) -> str: ...
+```
+
+---
+
+## `app/ops/filters.py`
+
+Чистые операции над `FiltersState` — без файлового I/O и без Telegram. Сюда добавляются новые действия, которые работают только с локальными данными.
+
+---
+
+## `app/telegram/wrappers.py`
+
+Низкоуровневые обёртки над Hydrogram. Изолируют вызовы API от бизнес-логики.
+
+```python
+def input_peer_to_chat_id(peer: InputPeer) -> int | None: ...
+def iter_dialogs(client: Client) -> AsyncGenerator[Dialog]: ...
+async def resolve_peer(client: Client, chat_id: int) -> InputPeer: ...
+async def fetch_filters(client: Client) -> list[DialogFilter]: ...
+```
+
+---
+
+## `app/telegram/api.py`
+
+Инкапсулирует все вызовы Hydrogram API. Конвертирует между `raw.types.DialogFilter` и доменными моделями. Снаружи никто не работает с raw-объектами Telegram напрямую.
 
 ```python
 async def fetch_state(client: Client) -> FiltersState:
-    """Получить текущие фильтры из Telegram → FiltersState.
-
-    Конвертирует raw.types.DialogFilter в FilterSpec.
-    channels ← include_peers, pinned ← pinned_peers, exclude ← exclude_peers.
-    Фильтр All Chats (id=0) пропускается.
-    """
+    """channels ← include_peers, pinned ← pinned_peers, exclude ← exclude_peers.
+    Фильтр All Chats (id=0) пропускается."""
     ...
 
 async def apply_state(client: Client, target: FiltersState) -> None:
-    """Применить FiltersState к Telegram.
-
-    - Создаёт новые фильтры (UpdateDialogFilter с новым id).
-    - Обновляет изменённые фильтры.
-    - Удаляет лишние фильтры (UpdateDialogFilter без filter=).
-    При push chat_id резолвятся в InputPeer через resolve_peer().
-    """
+    """Создаёт новые фильтры, обновляет изменённые, удаляет лишние.
+    chat_id резолвятся в InputPeer через resolve_peer()."""
     ...
 
 async def search_channels(client: Client, query: str) -> list[ChannelMatch]:
-    """Искать среди диалогов пользователя по подстроке в title/username.
-
-    Итерируется по get_dialogs(), фильтрует по query (case-insensitive).
-    """
+    """Итерируется по get_dialogs(), фильтрует по query (case-insensitive)."""
     ...
-```
-
-Внутренние хелперы (не публичный API модуля):
-
-```python
-def _raw_to_filter_spec(raw_filter: raw.types.DialogFilter) -> FilterSpec: ...
-def _filter_spec_to_raw(spec: FilterSpec, peers: dict[int, InputPeer]) -> raw.types.DialogFilter: ...
-def _input_peer_to_chat_id(peer: raw.base.InputPeer) -> int | None: ...
 ```
 
 ---
 
-## `app/commands.py`
+## `app/commands/sync.py`
 
-Бизнес-логика команд. Оркестрирует `storage` и `telegram`, выводит информацию пользователю, запрашивает подтверждения через `input()` / `cyclopts.utils.prompt()`.
+Команды, требующие подключения к Telegram. Оркестрируют `storage` и `telegram`, выводят информацию пользователю, запрашивают подтверждения через `input()`.
 
 ```python
 async def cmd_pull(client: Client) -> None:
@@ -190,7 +194,6 @@ async def cmd_pull(client: Client) -> None:
     3. Если diff не пуст — показать diff, запросить confirm
     4. write_filters(telegram_state); write_lock(telegram_state)
     """
-    ...
 
 async def cmd_push(client: Client) -> None:
     """
@@ -198,56 +201,27 @@ async def cmd_push(client: Client) -> None:
     2. read_lock() → lock_state
     3. fetch_state(client) → telegram_state
     4. Если lock_state есть и diff(lock_state, telegram_state) не пуст:
-         показать «Telegram изменён извне», показать diff, запросить confirm
-    5. Показать что будет сделано: diff(telegram_state, local_state)
-    6. Запросить confirm
-    7. apply_state(client, local_state)
-    8. write_lock(local_state)
+         показать «Telegram изменён извне», запросить confirm
+    5. Показать diff(telegram_state, local_state), запросить confirm
+    6. apply_state(client, local_state); write_lock(local_state)
     """
-    ...
 
 async def cmd_find_channel(client: Client, query: str) -> None:
-    """
-    1. search_channels(client, query) → matches
-    2. Вывести каждый match: chat_id  @username  "Title"
-    """
-    ...
+    """search_channels(client, query) → вывести каждый match: chat_id  @username  "Title" """
 ```
+
+---
+
+## `app/commands/local.py`
+
+Команды, работающие только с TOML — без подключения к Telegram. Используют `storage` и `ops`.
 
 ---
 
 ## `main.py`
 
-CLI на `cyclopts`. Создаёт Hydrogram-клиент и вызывает команды из `commands.py`.
+CLI на `cyclopts`. Создаёт Hydrogram-клиент и вызывает команды из `commands/`.
 Cyclopts поддерживает async-команды нативно — `asyncio.run()` не нужен.
-
-```python
-app = cyclopts.App()
-
-def get_client() -> Client:
-    return Client(settings.SESSION_NAME, api_id=settings.API_ID, api_hash=settings.API_HASH)
-
-@app.command
-async def pull() -> None:
-    """Скачать фильтры из Telegram в filters.toml."""
-    async with get_client() as client:
-        await cmd_pull(client)
-
-@app.command
-async def push() -> None:
-    """Применить filters.toml к Telegram."""
-    async with get_client() as client:
-        await cmd_push(client)
-
-@app.command(name="find-channel")
-async def find_channel(query: str) -> None:
-    """Найти канал среди диалогов по названию."""
-    async with get_client() as client:
-        await cmd_find_channel(client, query)
-
-if __name__ == "__main__":
-    app()
-```
 
 ---
 
@@ -255,31 +229,22 @@ if __name__ == "__main__":
 
 ```
 main.py
-  └─ commands.py
-       ├─ storage.py   (read/write TOML)
-       ├─ telegram.py  (Hydrogram API)
-       └─ models.py
+  ├─ commands/sync.py
+  │    ├─ storage/io.py    (read/write TOML)
+  │    ├─ storage/diff.py  (сравнение состояний)
+  │    └─ telegram/api.py  (Hydrogram API)
+  └─ commands/local.py
+       ├─ storage/io.py
+       └─ ops/filters.py   (операции над FiltersState)
 
-telegram.py
-  └─ wrappers.py  (низкоуровневые вызовы Hydrogram)
+telegram/api.py
+  └─ telegram/wrappers.py
 
-storage.py / models.py  — без внешних зависимостей (кроме stdlib)
+storage/io.py
+  └─ mapper.py
+
+storage/diff.py
+  └─ mapper.py  (BOOL_FLAGS, LIST_FIELDS)
+
+mapper.py / models.py  — без внешних зависимостей (кроме stdlib)
 ```
-
----
-
-## Что остаётся от текущего кода
-
-| Файл | Судьба |
-|---|---|
-| `app/wrappers.py` | Остаётся как есть — используется внутри `telegram.py` |
-| `app/folders.py` | Функции переносятся/рефакторятся в `telegram.py` |
-| `folder_manager.py` | Удаляется — логика поглощается новыми модулями |
-| `main.py` | Переписывается под typer CLI |
-
----
-
-## Зависимости для добавления в pyproject.toml
-
-- `cyclopts` — CLI-фреймворк (поддерживает async-команды нативно)
-- `tomli-w` — запись TOML (чтение через stdlib `tomllib`, Python 3.11+)
