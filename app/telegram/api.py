@@ -2,8 +2,15 @@ import contextlib
 from typing import cast
 
 from hydrogram import Client, raw
+from hydrogram.enums import ChatType
 
-from app.models import ChannelMatch, FilterSpec, FiltersState
+from app.models import (
+    ChannelMatch,
+    FilterSpec,
+    FiltersState,
+    PeerInfo,
+    PeerUniverse,
+)
 from app.telegram.wrappers import (
     fetch_filters,
     input_peer_to_chat_id,
@@ -92,12 +99,16 @@ async def apply_state(client: Client, target: FiltersState) -> None:
         all_chat_ids.update(spec.pinned)
         all_chat_ids.update(spec.exclude)
 
+    total = len(all_chat_ids)
     peers: dict[int, raw.base.InputPeer] = {}
-    for cid in all_chat_ids:
+    for i, cid in enumerate(all_chat_ids, 1):
+        print(f"\rРезолвим пиры... {i}/{total}", end="", flush=True)  # noqa: T201
         with contextlib.suppress(Exception):
             peers[cid] = await resolve_peer(client, cid)
+    print()  # noqa: T201
 
     for spec in target.filters:
+        print(f"  Обновляем [{spec.id}] {spec.title}")  # noqa: T201
         raw_filter = _filter_spec_to_raw(spec, peers)
         await client.invoke(
             raw.functions.messages.UpdateDialogFilter(
@@ -112,6 +123,31 @@ async def apply_state(client: Client, target: FiltersState) -> None:
     await client.invoke(
         raw.functions.messages.UpdateDialogFiltersOrder(order=order)
     )
+
+
+async def fetch_universe(client: Client) -> PeerUniverse:
+    """Собирает метаданные всех диалогов пользователя в PeerUniverse."""
+    peers: list[PeerInfo] = []
+    async for dialog in iter_dialogs(client):
+        chat = dialog.chat
+        t = chat.type
+        name = chat.title or getattr(chat, "full_name", None) or str(chat.id)
+        is_contact = bool(getattr(chat, "is_contact", False))
+        peers.append(
+            PeerInfo(
+                chat_id=chat.id,
+                name=name,
+                username=chat.username or None,
+                is_broadcast=t == ChatType.CHANNEL,
+                is_group=t in (ChatType.GROUP, ChatType.SUPERGROUP),
+                is_contact=is_contact,
+                is_non_contact=t == ChatType.PRIVATE and not is_contact,
+                is_bot=t == ChatType.BOT,
+            )
+        )
+        print(f"\rЗагружаем диалоги... {len(peers)}", end="", flush=True)  # noqa: T201
+    print()  # noqa: T201
+    return PeerUniverse(peers=peers)
 
 
 async def search_channels(client: Client, query: str) -> list[ChannelMatch]:

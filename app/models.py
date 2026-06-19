@@ -5,6 +5,30 @@ type ChatId = int
 
 
 @dataclass
+class PeerInfo:
+    """Метаданные одного чата из диалогов пользователя."""
+
+    chat_id: ChatId
+    name: str
+    username: str | None
+    is_broadcast: bool
+    is_group: bool
+    is_contact: bool
+    is_non_contact: bool
+    is_bot: bool
+
+
+@dataclass
+class PeerUniverse:
+    """Множество всех известных чатов пользователя."""
+
+    peers: list[PeerInfo]
+
+    def by_id(self) -> dict[ChatId, PeerInfo]:
+        return {p.chat_id: p for p in self.peers}
+
+
+@dataclass
 class FilterSpec:
     """Описание одного фильтра — то, что хранится в filters.toml."""
 

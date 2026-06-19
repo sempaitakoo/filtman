@@ -1,6 +1,7 @@
 from app.ops.filters import exclude_peers_from
-from app.storage.diff import diff_states
+from app.storage.diff import diff_states, format_diff
 from app.storage.io import read_filters, read_lock, write_filters
+from app.storage.peers import read_universe
 
 
 def cmd_diff() -> None:
@@ -17,6 +18,8 @@ def cmd_diff() -> None:
     if diff.is_empty:
         return
 
+    print(format_diff(diff, colored=True))  # noqa: T201
+
 
 def cmd_exclude(target_id: int, source_id: int) -> None:
     try:
@@ -24,15 +27,24 @@ def cmd_exclude(target_id: int, source_id: int) -> None:
     except FileNotFoundError:
         return
 
+    universe = read_universe()
+
     try:
-        new_state = exclude_peers_from(old_state, target_id, source_id)
+        new_state, warnings = exclude_peers_from(
+            old_state, target_id, source_id, universe
+        )
     except ValueError:
         return
 
+    for w in warnings:
+        print(f"Предупреждение: {w}")  # noqa: T201
+
     diff = diff_states(old_state, new_state)
     if diff.is_empty:
+        print("Нет изменений.")  # noqa: T201
         return
 
+    print(format_diff(diff, colored=True))  # noqa: T201
     answer = input("Применить? [y/N] ")
     if answer.strip().lower() != "y":
         return
