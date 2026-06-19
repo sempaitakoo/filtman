@@ -1,3 +1,4 @@
+# ruff: noqa: T201
 from app.ops.filters import exclude_peers_from
 from app.storage.diff import diff_states, format_diff
 from app.storage.io import read_filters, read_lock, write_filters
@@ -18,8 +19,7 @@ def cmd_diff() -> None:
     if diff.is_empty:
         return
 
-    print(format_diff(diff, colored=True))  # noqa: T201
-
+    print(format_diff(diff, colored=True))
 
 def cmd_exclude(target_id: int, source_id: int) -> None:
     try:
@@ -37,15 +37,12 @@ def cmd_exclude(target_id: int, source_id: int) -> None:
         return
 
     for w in warnings:
-        print(f"Предупреждение: {w}")  # noqa: T201
-
+        print(f"Предупреждение: {w}")
     diff = diff_states(old_state, new_state)
     if diff.is_empty:
-        print("Нет изменений.")  # noqa: T201
-        return
+        print("Нет изменений.")        return
 
-    print(format_diff(diff, colored=True))  # noqa: T201
-    answer = input("Применить? [y/N] ")
+    print(format_diff(diff, colored=True))    answer = input("Применить? [y/N] ")
     if answer.strip().lower() != "y":
         return
 

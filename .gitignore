@@ -12,10 +12,17 @@ wheels/
 # Secrets
 *.env
 *.session
+*.session-journal
 
 # Coverage
 *.coverage
 
-# Telegram filters toml
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Telegram local
 filters.toml
 filters.lock.toml
+peers.lock.json
