@@ -145,6 +145,14 @@ def format_diff(diff: FilterDiff, *, colored: bool = False) -> str: ...
 
 Чистые операции над `FiltersState` — без файлового I/O и без Telegram. Сюда добавляются новые действия, которые работают только с локальными данными.
 
+```python
+def exclude_peers_from(
+    state: FiltersState, target_id: FilterId, source_id: FilterId
+) -> FiltersState:
+    """Добавляет peers source-фильтра (channels ∪ pinned) в exclude target-фильтра.
+    Одновременно удаляет эти peers из channels и pinned target-фильтра."""
+```
+
 ---
 
 ## `app/telegram/wrappers.py`
@@ -224,6 +232,15 @@ def cmd_diff() -> None:
     3. diff_states(lock_state, local_state) → diff
     4. Если diff пуст — «Нет изменений.»
     5. Иначе — вывести format_diff(diff, colored=True)
+    """
+
+def cmd_exclude(target_id: int, source_id: int) -> None:
+    """
+    1. read_filters() → old_state
+    2. exclude_peers_from(old_state, target_id, source_id) → new_state
+    3. Если diff пуст — выйти без изменений
+    4. Показать format_diff(diff, colored=True), запросить confirm
+    5. write_filters(new_state)
     """
 ```
 
