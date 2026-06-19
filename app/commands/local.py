@@ -133,22 +133,29 @@ def cmd_overlap(filter_id: int | None = None) -> None:
         print("Дублей нет.")
         return
 
+    by_id = universe.by_id()
     max_len = max(len(str(r.chat_id)) for r in results)
+    max_name_len = max(
+        len(by_id[r.chat_id].name) if r.chat_id in by_id else 0 for r in results
+    )
+
+    def fmt_row(chat_id: int) -> str:
+        peer = by_id.get(chat_id)
+        name = f'"{peer.name}"' if peer else ""
+        return f"{str(chat_id).ljust(max_len)}  {name.ljust(max_name_len + 2)}"
 
     if filter_id is None:
         for r in results:
             folders = "  ".join(f"[{f.id}] {f.title}" for f in r.filters)
             count = len(r.filters)
-            print(
-                f"{str(r.chat_id).ljust(max_len)}  в {count} папках: {folders}"
-            )
+            print(f"{fmt_row(r.chat_id)}в {count} папках: {folders}")
     else:
         anchor_title = next(f.title for f in state.filters if f.id == filter_id)
         for r in results:
             others = "  ".join(
                 f"[{f.id}] {f.title}" for f in r.filters if f.id != filter_id
             )
-            print(f"{str(r.chat_id).ljust(max_len)}  также в: {others}")
+            print(f"{fmt_row(r.chat_id)}также в: {others}")
         print()
         print(
             f"{len(results)} чат{'а' if len(results) in (2, 3, 4) else 'ов'} "
