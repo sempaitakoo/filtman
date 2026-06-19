@@ -21,6 +21,7 @@ def cmd_diff() -> None:
 
     print(format_diff(diff, colored=True))
 
+
 def cmd_exclude(target_id: int, source_id: int) -> None:
     try:
         old_state = read_filters()
@@ -40,9 +41,11 @@ def cmd_exclude(target_id: int, source_id: int) -> None:
         print(f"Предупреждение: {w}")
     diff = diff_states(old_state, new_state)
     if diff.is_empty:
-        print("Нет изменений.")        return
+        print("Нет изменений.")
+        return
 
-    print(format_diff(diff, colored=True))    answer = input("Применить? [y/N] ")
+    print(format_diff(diff, colored=True))
+    answer = input("Применить? [y/N] ")
     if answer.strip().lower() != "y":
         return
 

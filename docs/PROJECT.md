@@ -47,18 +47,25 @@ channels = []
 
 Снимок состояния Telegram на момент последнего `pull`. Генерируется автоматически, пользователь его не редактирует. Используется командой `push` для обнаружения конфликтов.
 
+### `peers.lock.json`
+
+Кеш всех диалогов пользователя на момент последнего `pull`. Генерируется автоматически, пользователь его не редактирует. Хранит для каждого чата: `chat_id`, `name`, `username` и флаги типа (`is_broadcast`, `is_group`, `is_contact`, `is_non_contact`, `is_bot`).
+
+Используется командой `exclude` для корректной материализации флагов категорий (`broadcasts=true` и т.д.) в конкретные множества chat_id. Динамические состояния (`is_muted`, `is_read`, `is_archived`) не хранятся — они меняются постоянно.
+
 ## CLI команды
 
 ### `pull`
 
-Скачивает текущие фильтры из Telegram и записывает в `filters.toml` и `filters.lock.toml`.
+Скачивает текущие фильтры из Telegram и записывает в `filters.toml`, `filters.lock.toml` и `peers.lock.json`.
 
 **Логика:**
 
 1. Получить фильтры из Telegram.
 2. Если `filters.toml` уже существует — сравнить его с тем, что пришло из Telegram.
 3. Если в `filters.toml` есть фильтры, которых нет в Telegram (или наоборот) — показать diff и запросить подтверждение перед перезаписью.
-4. Записать новый `filters.toml` и `filters.lock.toml`.
+4. Получить список всех диалогов пользователя → записать в `peers.lock.json`.
+5. Записать новый `filters.toml` и `filters.lock.toml`.
 
 ### `push`
 
@@ -96,6 +103,8 @@ $ filtman diff
 ### `exclude <target_id> --from <source_id>`
 
 Добавляет все peers фильтра `source_id` в список `exclude` фильтра `target_id`. Одновременно удаляет эти peers из `channels` и `pinned` фильтра `target_id`, если они там присутствуют. Работает без подключения к Telegram — изменяет только `filters.toml`.
+
+Если source-фильтр использует флаги категорий (`broadcasts=true`, `groups=true` и т.д.), команда раскрывает их в конкретные chat_id через `peers.lock.json` (обновляется при `pull`). Если файл отсутствует — используются только явные `channels` и `pinned`, выводится предупреждение.
 
 ```
 $ filtman exclude 1 --from 2

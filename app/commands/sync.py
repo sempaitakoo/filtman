@@ -26,7 +26,8 @@ async def cmd_pull(client: Client) -> None:
     except FileNotFoundError:
         pass
 
-    print("Загружаем список чатов...")    universe = await fetch_universe(client)
+    print("Загружаем список чатов...")
+    universe = await fetch_universe(client)
     write_filters(telegram_state)
     write_lock(telegram_state)
     write_universe(universe)
@@ -39,7 +40,8 @@ async def cmd_push(client: Client) -> None:
         return
 
     lock_state = read_lock()
-    print("Получаем фильтры из Telegram...")    telegram_state = await fetch_state(client)
+    print("Получаем фильтры из Telegram...")
+    telegram_state = await fetch_state(client)
 
     if lock_state is not None:
         external_diff = diff_states(lock_state, telegram_state)
@@ -56,7 +58,8 @@ async def cmd_push(client: Client) -> None:
     if answer != "y":
         return
 
-    print("Применяем изменения...")    await apply_state(client, local_state)
+    print("Применяем изменения...")
+    await apply_state(client, local_state)
     write_lock(local_state)
 
 

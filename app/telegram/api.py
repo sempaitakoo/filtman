@@ -103,11 +103,13 @@ async def apply_state(client: Client, target: FiltersState) -> None:
     total = len(all_chat_ids)
     peers: dict[int, raw.base.InputPeer] = {}
     for i, cid in enumerate(all_chat_ids, 1):
-        print(f"\rРезолвим пиры... {i}/{total}", end="", flush=True)        with contextlib.suppress(Exception):
+        print(f"\rРезолвим пиры... {i}/{total}", end="", flush=True)
+        with contextlib.suppress(Exception):
             peers[cid] = await resolve_peer(client, cid)
     print()
     for spec in target.filters:
-        print(f"  Обновляем [{spec.id}] {spec.title}")        raw_filter = _filter_spec_to_raw(spec, peers)
+        print(f"  Обновляем [{spec.id}] {spec.title}")
+        raw_filter = _filter_spec_to_raw(spec, peers)
         await client.invoke(
             raw.functions.messages.UpdateDialogFilter(
                 id=spec.id, filter=cast("raw.base.DialogFilter", raw_filter)
@@ -143,7 +145,9 @@ async def fetch_universe(client: Client) -> PeerUniverse:
                 is_bot=t == ChatType.BOT,
             )
         )
-        print(f"\rЗагружаем диалоги... {len(peers)}", end="", flush=True)    print()    return PeerUniverse(peers=peers)
+        print(f"\rЗагружаем диалоги... {len(peers)}", end="", flush=True)
+    print()
+    return PeerUniverse(peers=peers)
 
 
 async def search_channels(client: Client, query: str) -> list[ChannelMatch]:
