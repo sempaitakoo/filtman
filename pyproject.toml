@@ -1,5 +1,5 @@
 [project]
-name = "grpman"
+name = "filtman"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -13,6 +13,9 @@ dependencies = [
     "tomli-w>=1.2.0",
     "uvloop>=0.22.1",
 ]
+
+[project.scripts]
+filtman = "app.cli:app"
 
 [dependency-groups]
 dev = [

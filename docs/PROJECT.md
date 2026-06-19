@@ -1,4 +1,4 @@
-# grpman — Telegram Filter Manager
+# filtman — Telegram Filter Manager
 
 Инструмент для декларативного управления папками (фильтрами) чатов в Telegram через CLI.
 
@@ -84,7 +84,7 @@ channels = []
 Показывает разницу между `filters.toml` и `filters.lock.toml` — то есть что именно будет применено при следующем `push`. Работает без подключения к Telegram.
 
 ```
-$ grpman diff
+$ filtman diff
   + [5] Новая папка
   ~ [1] Работа
       channels: [123, 456] → [123, 456, 789]
@@ -98,7 +98,7 @@ $ grpman diff
 Добавляет все peers фильтра `source_id` в список `exclude` фильтра `target_id`. Одновременно удаляет эти peers из `channels` и `pinned` фильтра `target_id`, если они там присутствуют. Работает без подключения к Telegram — изменяет только `filters.toml`.
 
 ```
-$ grpman exclude 1 --from 2
+$ filtman exclude 1 --from 2
   ~ [1] Работа
       exclude: [] → [111111111, 222222222]
       channels: [111111111, 222222222, 333333333] → [333333333]
@@ -114,7 +114,7 @@ $ grpman exclude 1 --from 2
 Используется чтобы узнать chat_id канала перед добавлением его в `filters.toml`.
 
 ```
-$ grpman find-channel "breaking"
+$ filtman find-channel "breaking"
 123456789  @breakingmash  "Breaking Mash"
 987654321  (private)      "Breaking News RU"
 ```

@@ -1,11 +1,11 @@
-# grpman — Architecture
+# filtman — Architecture
 
 ## Структура модулей
 
 ```
-grpman/
-├── main.py                   # CLI точка входа (cyclopts)
+filtman/
 └── app/
+    ├── cli.py                # CLI точка входа (cyclopts)
     ├── config.py             # Настройки из .env
     ├── models.py             # Доменные модели
     ├── mapper.py             # Конвертация dict ↔ FiltersState (TOML-слой)
@@ -246,9 +246,9 @@ def cmd_exclude(target_id: int, source_id: int) -> None:
 
 ---
 
-## `main.py`
+## `app/cli.py`
 
-CLI на `cyclopts`. Создаёт Hydrogram-клиент и вызывает команды из `commands/`.
+CLI точка входа на `cyclopts`. Создаёт Hydrogram-клиент и вызывает команды из `commands/`.
 Cyclopts поддерживает async-команды нативно — `asyncio.run()` не нужен.
 
 ---
@@ -256,7 +256,7 @@ Cyclopts поддерживает async-команды нативно — `async
 ## Зависимости между модулями
 
 ```
-main.py
+app/cli.py
   ├─ commands/sync.py
   │    ├─ storage/io.py    (read/write TOML)
   │    ├─ storage/diff.py  (сравнение состояний)

@@ -12,7 +12,7 @@ app = cyclopts.App()
 
 def get_client() -> Client:
     return Client(
-        settings.SESSION_NAME,
+        settings.session_path,
         api_id=settings.API_ID,
         api_hash=settings.API_HASH,
     )
@@ -52,7 +52,3 @@ async def find_channel(query: str) -> None:
     """Найти канал среди диалогов по названию."""
     async with get_client() as client:
         await cmd_find_channel(client, query)
-
-
-if __name__ == "__main__":
-    app()
