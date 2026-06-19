@@ -137,12 +137,13 @@ def apply_compact(
 
 def find_overlaps(
     state: FiltersState,
+    universe: PeerUniverse,
     filter_id: FilterId | None = None,
 ) -> list[OverlapResult]:
     """Находит чаты, присутствующие в нескольких фильтрах одновременно."""
     chat_to_filters: dict[ChatId, list[FilterSpec]] = {}
     for f in state.filters:
-        for chat_id in set(f.channels) | set(f.pinned):
+        for chat_id in resolve_filter(f, universe):
             chat_to_filters.setdefault(chat_id, []).append(f)
 
     results = [

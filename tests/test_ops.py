@@ -448,7 +448,7 @@ def test_find_overlaps_basic() -> None:
         make_spec(1, channels=[10, 20]),
         make_spec(2, channels=[10]),
     )
-    results = find_overlaps(state)
+    results = find_overlaps(state, make_universe())
     assert len(results) == 1
     assert results[0].chat_id == 10
     assert {f.id for f in results[0].filters} == {1, 2}
@@ -459,7 +459,7 @@ def test_find_overlaps_pinned_counted() -> None:
         make_spec(1, channels=[99]),
         make_spec(2, pinned=[99]),
     )
-    results = find_overlaps(state)
+    results = find_overlaps(state, make_universe())
     assert len(results) == 1
     assert results[0].chat_id == 99
 
@@ -469,7 +469,7 @@ def test_find_overlaps_no_duplicates() -> None:
         make_spec(1, channels=[10]),
         make_spec(2, channels=[20]),
     )
-    assert find_overlaps(state) == []
+    assert find_overlaps(state, make_universe()) == []
 
 
 def test_find_overlaps_sorted_by_filter_count_desc() -> None:
@@ -478,7 +478,7 @@ def test_find_overlaps_sorted_by_filter_count_desc() -> None:
         make_spec(2, channels=[10, 20]),
         make_spec(3, channels=[20]),
     )
-    results = find_overlaps(state)
+    results = find_overlaps(state, make_universe())
     counts = [len(r.filters) for r in results]
     assert counts == sorted(counts, reverse=True)
 
@@ -489,7 +489,7 @@ def test_find_overlaps_with_filter_id() -> None:
         make_spec(2, channels=[10]),
         make_spec(3, channels=[20]),
     )
-    results = find_overlaps(state, filter_id=2)
+    results = find_overlaps(state, make_universe(), filter_id=2)
     assert all(any(f.id == 2 for f in r.filters) for r in results)
     assert len(results) == 1
     assert results[0].chat_id == 10
@@ -502,7 +502,7 @@ def test_find_overlaps_filter_id_no_results() -> None:
         make_spec(3, channels=[10]),
     )
     # фильтр 2 не пересекается ни с кем
-    assert find_overlaps(state, filter_id=2) == []
+    assert find_overlaps(state, make_universe(), filter_id=2) == []
 
 
 def test_find_overlaps_three_way() -> None:
@@ -511,7 +511,7 @@ def test_find_overlaps_three_way() -> None:
         make_spec(2, channels=[5]),
         make_spec(3, channels=[5]),
     )
-    results = find_overlaps(state)
+    results = find_overlaps(state, make_universe())
     assert len(results) == 1
     assert len(results[0].filters) == 3
 
@@ -522,9 +522,62 @@ def test_find_overlaps_exclude_not_counted() -> None:
         make_spec(1, channels=[10], exclude=[99]),
         make_spec(2, channels=[99]),
     )
-    results = find_overlaps(state)
+    results = find_overlaps(state, make_universe())
     assert all(r.chat_id != 99 for r in results)
 
 
 def test_find_overlaps_empty_state() -> None:
-    assert find_overlaps(make_state()) == []
+    assert find_overlaps(make_state(), make_universe()) == []
+
+
+def test_find_overlaps_flag_vs_explicit_channel() -> None:
+    # фильтр 1 содержит бота явно, фильтр 2 — через bots=true
+    bot = make_peer(42, is_bot=True)
+    universe = make_universe(bot)
+    state = make_state(
+        make_spec(1, channels=[42]),
+        make_spec(2, bots=True),
+    )
+    results = find_overlaps(state, universe)
+    assert len(results) == 1
+    assert results[0].chat_id == 42
+    assert {f.id for f in results[0].filters} == {1, 2}
+
+
+def test_find_overlaps_two_flag_filters() -> None:
+    # оба фильтра используют broadcasts=true — все каналы из universe в обоих
+    ch1 = make_peer(10, is_broadcast=True)
+    ch2 = make_peer(20, is_broadcast=True)
+    universe = make_universe(ch1, ch2)
+    state = make_state(
+        make_spec(1, broadcasts=True),
+        make_spec(2, broadcasts=True),
+    )
+    results = find_overlaps(state, universe)
+    assert {r.chat_id for r in results} == {10, 20}
+    assert all(len(r.filters) == 2 for r in results)
+
+
+def test_find_overlaps_flag_peer_not_in_other_filter() -> None:
+    # бот попадает в фильтр через флаг, но в другом фильтре его нет — не дубль
+    bot = make_peer(99, is_bot=True)
+    other = make_peer(55, is_broadcast=True)
+    universe = make_universe(bot, other)
+    state = make_state(
+        make_spec(1, bots=True),
+        make_spec(2, channels=[55]),
+    )
+    results = find_overlaps(state, universe)
+    assert results == []
+
+
+def test_find_overlaps_exclude_removes_flag_peer() -> None:
+    # пир попадает в фильтр через флаг, но явно исключён — не считается дублём
+    bot = make_peer(77, is_bot=True)
+    universe = make_universe(bot)
+    state = make_state(
+        make_spec(1, bots=True, exclude=[77]),
+        make_spec(2, channels=[77]),
+    )
+    results = find_overlaps(state, universe)
+    assert results == []

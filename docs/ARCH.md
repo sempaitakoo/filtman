@@ -229,10 +229,11 @@ def apply_compact(spec: FilterSpec, suggestions: list[CompactSuggestion]) -> Fil
 
 def find_overlaps(
     state: FiltersState,
+    universe: PeerUniverse,
     filter_id: FilterId | None = None,
 ) -> list[OverlapResult]:
     """Находит чаты, присутствующие в нескольких фильтрах.
-    Учитывает только явные channels и pinned — флаги категорий не раскрываются.
+    Раскрывает флаги категорий (broadcasts, bots и т.д.) через universe.
     Результат отсортирован по убыванию числа фильтров."""
 ```
 
@@ -347,10 +348,11 @@ def cmd_compact(filter_id: int | None = None) -> None:
 def cmd_overlap(filter_id: int | None = None) -> None:
     """
     1. read_filters() → state  (ошибка если нет файла)
-    2. Если filter_id передан — проверить что фильтр существует
-    3. find_overlaps(state, filter_id) → results
-    4. Если results пуст — «Дублей нет.»
-    5. Вывести строки с выравниванием chat_id по ширине самого длинного
+    2. read_universe() → universe  (ошибка если нет peers.lock.json)
+    3. Если filter_id передан — проверить что фильтр существует
+    4. find_overlaps(state, universe, filter_id) → results
+    5. Если results пуст — «Дублей нет.»
+    6. Вывести строки с выравниванием chat_id по ширине самого длинного
     """
 
 def cmd_annotate() -> None:

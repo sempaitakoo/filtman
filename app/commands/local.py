@@ -123,7 +123,12 @@ def cmd_overlap(filter_id: int | None = None) -> None:
             print(f"Фильтр {filter_id} не найден.")
             return
 
-    results = find_overlaps(state, filter_id)
+    universe = read_universe()
+    if universe is None:
+        print("peers.lock.json не найден. Выполните pull.")
+        return
+
+    results = find_overlaps(state, universe, filter_id)
     if not results:
         print("Дублей нет.")
         return
