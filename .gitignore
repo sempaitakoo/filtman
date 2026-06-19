@@ -12,3 +12,10 @@ wheels/
 # Secrets
 *.env
 *.session
+
+# Coverage
+*.coverage
+
+# Telegram filters toml
+filters.toml
+filters.lock.toml
