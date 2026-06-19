@@ -54,7 +54,7 @@ def cmd_exclude(target_id: int, source_id: int) -> None:
     if answer.strip().lower() != "y":
         return
 
-    write_filters(new_state)
+    write_filters(new_state, universe=universe)
 
 
 def _format_suggestions(suggestions: list[CompactSuggestion]) -> str:
@@ -95,7 +95,7 @@ def cmd_compact(filter_id: int | None = None) -> None:
         new_filters = [
             new_spec if f.id == filter_id else f for f in state.filters
         ]
-        write_filters(state.__class__(filters=new_filters))
+        write_filters(state.__class__(filters=new_filters), universe=universe)
     else:
         any_found = False
         for spec in state.filters:
@@ -107,3 +107,19 @@ def cmd_compact(filter_id: int | None = None) -> None:
                 print()
         if not any_found:
             print("Нет предложений.")
+
+
+def cmd_annotate() -> None:
+    try:
+        state = read_filters()
+    except FileNotFoundError:
+        print("filters.toml не найден.")
+        return
+
+    universe = read_universe()
+    if universe is None:
+        print("peers.lock.json не найден. Выполните pull.")
+        return
+
+    write_filters(state, universe=universe)
+    print("filters.toml обновлён с комментариями.")

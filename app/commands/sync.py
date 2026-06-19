@@ -28,7 +28,7 @@ async def cmd_pull(client: Client) -> None:
 
     print("Загружаем список чатов...")
     universe = await fetch_universe(client)
-    write_filters(telegram_state)
+    write_filters(telegram_state, universe=universe)
     write_lock(telegram_state)
     write_universe(universe)
 

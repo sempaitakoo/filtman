@@ -117,19 +117,21 @@ def state_to_dict(state: FiltersState) -> dict: ...
 
 ## `app/storage/io.py`
 
-Чтение и запись TOML-файлов. Использует `mapper` для конвертации, не знает о Telegram.
+Чтение и запись TOML-файлов. Использует `mapper` для конвертации, не знает о Telegram. Использует `tomlkit` (вместо `tomllib`/`tomli-w`) для поддержки inline-комментариев при записи.
 
 ```python
 FILTERS_FILE = Path("filters.toml")
 LOCK_FILE = Path("filters.lock.toml")
 
 def read_filters(path: Path = FILTERS_FILE) -> FiltersState: ...
-def write_filters(state: FiltersState, path: Path = FILTERS_FILE) -> None: ...
+def write_filters(state: FiltersState, path: Path = FILTERS_FILE, universe: PeerUniverse | None = None) -> None: ...
 def read_lock(path: Path = LOCK_FILE) -> FiltersState | None: ...
 def write_lock(state: FiltersState, path: Path = LOCK_FILE) -> None: ...
 ```
 
-**Формат TOML:**
+Если `universe` передан, поля `channels`, `pinned`, `exclude` записываются в многострочном формате с inline-комментариями (`# Имя чата`) для каждого chat_id. Если `universe` не передан или chat_id в нём не найден — запись без комментария.
+
+**Формат TOML без комментариев:**
 
 ```toml
 [filters.1]
@@ -141,6 +143,20 @@ channels = [123456789, 987654321]
 title = "Политика"
 broadcasts = true
 exclude = [333333333]
+```
+
+**Формат TOML с комментариями (при наличии universe):**
+
+```toml
+[filters.1]
+title = "Работа"
+pinned = [
+    111111111, # Work Chat
+]
+channels = [
+    123456789, # РБК
+    987654321, # Breaking Mash
+]
 ```
 
 Правила записи: пустые списки и флаги `false` не записываются. `pinned` записывается перед `channels` для читаемости.
@@ -259,7 +275,7 @@ async def cmd_pull(client: Client) -> None:
     2. Если filters.toml существует — прочитать, сравнить с telegram_state
     3. Если diff не пуст — показать diff, запросить confirm
     4. fetch_universe(client) → universe
-    5. write_filters(telegram_state); write_lock(telegram_state); write_universe(universe)
+    5. write_filters(telegram_state, universe=universe); write_lock(telegram_state); write_universe(universe)
     """
 
 async def cmd_push(client: Client) -> None:
@@ -301,7 +317,7 @@ def cmd_exclude(target_id: int, source_id: int) -> None:
     4. Вывести warnings если есть
     5. Если diff пуст — «Нет изменений.»
     6. Показать format_diff(diff, colored=True), запросить confirm
-    7. write_filters(new_state)
+    7. write_filters(new_state, universe=universe)
     """
 
 def cmd_compact(filter_id: int | None = None) -> None:
@@ -312,7 +328,14 @@ def cmd_compact(filter_id: int | None = None) -> None:
          для каждого фильтра — compact_filter(spec, universe) → показать предложения (read-only)
     4. Если filter_id передан:
          compact_filter(spec, universe) → показать предложения + предупреждение о семантике
-         запросить confirm → apply_compact(spec, suggestions) → write_filters(new_state)
+         запросить confirm → apply_compact(spec, suggestions) → write_filters(new_state, universe=universe)
+    """
+
+def cmd_annotate() -> None:
+    """
+    1. read_filters() → state  (ошибка если нет файла)
+    2. read_universe() → universe  (ошибка если нет peers.lock.json)
+    3. write_filters(state, universe=universe)
     """
 ```
 

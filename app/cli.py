@@ -3,7 +3,7 @@ from typing import Annotated
 import cyclopts
 from hydrogram import Client
 
-from app.commands.local import cmd_compact, cmd_diff, cmd_exclude
+from app.commands.local import cmd_annotate, cmd_compact, cmd_diff, cmd_exclude
 from app.commands.sync import cmd_find_channel, cmd_pull, cmd_push
 from app.config import settings
 
@@ -16,6 +16,12 @@ def get_client() -> Client:
         api_id=settings.API_ID,
         api_hash=settings.API_HASH,
     )
+
+
+@app.command
+def annotate() -> None:
+    """Добавить комментарии с именами чатов в filters.toml из peers.lock.json."""
+    cmd_annotate()
 
 
 @app.command
